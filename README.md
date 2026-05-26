@@ -1,10 +1,10 @@
 # pets-deeplearning
 
-Interactive classifier that identifies **37 dog and cat breeds** from a photo — returns the top-5 most likely breeds with confidence scores.
+**PetLens** — classifier that identifies **37 dog and cat breeds** from a photo and returns the top-5 most likely breeds with confidence scores.
 
-Built with PyTorch and ResNet-18. Served via Flask.
+Built with PyTorch and ResNet-18. Served via Streamlit.
 
-![Python](https://img.shields.io/badge/Python-3.11-blue) ![PyTorch](https://img.shields.io/badge/PyTorch-2.0-orange) ![Flask](https://img.shields.io/badge/Flask-3.0-lightgrey)
+![Python](https://img.shields.io/badge/Python-3.11-blue) ![PyTorch](https://img.shields.io/badge/PyTorch-2.0-orange) ![Streamlit](https://img.shields.io/badge/Streamlit-1.x-red)
 
 ---
 
@@ -14,7 +14,7 @@ Modern image classifiers rely on deep convolutional networks trained on millions
 
 This project uses **transfer learning** with ResNet-18 pre-trained on ImageNet. All convolutional layers are frozen; only the final fully-connected layer is retrained on the Oxford-IIIT Pet Dataset. The result is a model that reaches ~88% validation accuracy in under 10 minutes on Apple Silicon.
 
-The classifier is exposed through a Flask API that accepts an image and returns the top-5 predictions with their probabilities.
+The classifier is served through a Streamlit interface — upload a photo, get the top-5 breeds and their confidence bars instantly.
 
 ---
 
@@ -38,7 +38,9 @@ Top-5 breeds + confidence scores
 
 **Normalization with ImageNet statistics** — mean `[0.485, 0.456, 0.406]` and std `[0.229, 0.224, 0.225]` match the distribution the backbone was trained on. Using different values would shift activations and hurt accuracy.
 
-**MPS acceleration** — on Apple Silicon, training runs on the GPU via `torch.backends.mps`. Falls back to CPU on other hardware automatically.
+**`@st.cache_resource` on model load** — the model is loaded once and cached across Streamlit reruns. Without this, every file upload would reload the weights from disk.
+
+**MPS acceleration** — training runs on the GPU via `torch.backends.mps` on Apple Silicon. Inference in `app.py` runs on CPU (`map_location="cpu"`) for portability.
 
 ---
 
@@ -54,11 +56,11 @@ Split: **80% train / 20% validation** via `random_split`.
 
 ```
 pets-deeplearning/
+├── app.py                 # Streamlit interface — PetLens UI
 ├── treino.py              # Training loop, saves pet_classifier.pth
 ├── modelo.py              # Model definition (ResNet-18 + custom fc)
 ├── prepare.py             # Dataset preparation and transforms
 ├── organize_dataset.py    # Organizes raw images into class folders
-├── app.py                 # Flask API — POST /predict
 ├── requirements.txt
 ├── README.md
 └── .gitignore
@@ -77,7 +79,6 @@ pip install -r requirements.txt
 Download the dataset:
 
 ```bash
-# Download Oxford-IIIT Pet Dataset
 wget https://www.robots.ox.ac.uk/~vgg/data/pets/data/images.tar.gz
 tar -xf images.tar.gz
 python organize_dataset.py
@@ -90,46 +91,22 @@ python treino.py
 # Saves pet_classifier.pth after 10 epochs
 ```
 
-Run the API:
+Run the app:
 
 ```bash
-flask run
-```
-
----
-
-## ◈ API
-
-**POST /predict**
-
-```bash
-curl -X POST -F "image=@foto.jpg" http://localhost:5000/predict
-```
-
-Response:
-
-```json
-{
-  "predictions": [
-    { "breed": "Bengal",          "confidence": 0.91 },
-    { "breed": "Abyssinian",      "confidence": 0.05 },
-    { "breed": "Egyptian_Mau",    "confidence": 0.02 },
-    { "breed": "Russian_Blue",    "confidence": 0.01 },
-    { "breed": "Siamese",         "confidence": 0.01 }
-  ]
-}
+streamlit run app.py
 ```
 
 ---
 
 ## ◈ Results
 
-| Metric            | Value  |
-|-------------------|--------|
-| Train accuracy    | ~92%   |
-| Val accuracy      | ~88%   |
-| Epochs            | 10     |
-| Training time     | ~8 min (Apple M1) |
+| Metric             | Value                  |
+|--------------------|------------------------|
+| Train accuracy     | ~92%                   |
+| Val accuracy       | ~88%                   |
+| Epochs             | 10                     |
+| Training time      | ~8 min (Apple M1)      |
 | Parameters trained | 18,944 (fc layer only) |
 
 ---
@@ -139,11 +116,9 @@ Response:
 ```
 torch
 torchvision
-flask
+streamlit
 pillow
 ```
-
-No custom ML implementations. PyTorch is used for model training and inference only.
 
 ---
 
@@ -153,7 +128,7 @@ No custom ML implementations. PyTorch is used for model training and inference o
 - [ ] Learning rate scheduler (StepLR or CosineAnnealing)
 - [ ] Early stopping with best-model checkpoint
 - [ ] Grad-CAM visualization — highlight what the model looks at
-- [ ] Web interface with drag-and-drop upload
+- [ ] Deploy on Streamlit Cloud
 
 ---
 
